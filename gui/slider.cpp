@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <linux/input.h>
 #include <sys/reboot.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -119,6 +120,8 @@ GUISlider::GUISlider(xml_node<>* node) : GUIObject(node)
 
 	sCurTouchX = mRenderX;
 	sUpdate = 1;
+	mHasKeyFocus = false;
+	mKeyDownTime = 0;
 }
 
 GUISlider::~GUISlider()
@@ -149,6 +152,14 @@ int GUISlider::Render(void)
 	if (sSliderLabel) {
 		int ret = sSliderLabel->Render();
 		if (ret < 0)		return ret;
+	}
+
+	if (mHasKeyFocus) {
+		gr_color(255, 255, 255, 80);
+		gr_fill(mRenderX - 2, mRenderY - 2, mRenderW + 4, 2);
+		gr_fill(mRenderX - 2, mRenderY + mRenderH, mRenderW + 4, 2);
+		gr_fill(mRenderX - 2, mRenderY, 2, mRenderH);
+		gr_fill(mRenderX + mRenderW, mRenderY, 2, mRenderH);
 	}
 
 	sUpdate = 0;
@@ -224,4 +235,35 @@ int GUISlider::NotifyTouch(TOUCH_STATE state, int x, int y)
 		break;
 	}
 	return 0;
+}
+
+void GUISlider::SetKeyNavFocus(bool focus)
+{
+	mHasKeyFocus = focus;
+	sUpdate = 1;
+}
+
+int GUISlider::NotifyKey(int key, bool down)
+{
+	if (!isConditionTrue())
+		return 1;
+	if (!mHasKeyFocus)
+		return 1;
+
+	if (key == KEY_POWER || key == KEY_ENTER) {
+		if (down) {
+			mKeyDownTime = time(NULL);
+		} else {
+			// Require 2+ second hold to activate (safety for destructive actions)
+			if (mKeyDownTime > 0 && (time(NULL) - mKeyDownTime) >= 2) {
+				sAction->doActions();
+#ifndef TW_NO_HAPTICS
+				DataManager::Vibrate("tw_button_vibrate");
+#endif
+			}
+			mKeyDownTime = 0;
+		}
+		return 0;
+	}
+	return 1;
 }

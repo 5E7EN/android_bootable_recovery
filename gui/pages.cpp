@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <linux/input.h>
 #include <sys/reboot.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -287,6 +288,8 @@ int ActionObject::SetActionPos(int x, int y, int w, int h)
 Page::Page(xml_node<>* page, std::vector<xml_node<>*> *templates)
 {
 	mTouchStart = NULL;
+	mFocusIndex = -1;
+	mKeyNavActive = false;
 
 	// We can memset the whole structure, because the alpha channel is ignored
 	memset(&mBackground, 0, sizeof(COLOR));
@@ -314,6 +317,15 @@ Page::Page(xml_node<>* page, std::vector<xml_node<>*> *templates)
 
 	// This is a recursive routine for template handling
 	ProcessNode(page, templates, 0);
+
+	// Sort focusable elements by screen position (top-to-bottom, left-to-right)
+	std::sort(mFocusable.begin(), mFocusable.end(), [](ActionObject* a, ActionObject* b) {
+		int ax, ay, aw, ah, bx, by, bw, bh;
+		a->GetActionPos(ax, ay, aw, ah);
+		b->GetActionPos(bx, by, bw, bh);
+		if (ay != by) return ay < by;
+		return ax < bx;
+	});
 }
 
 Page::~Page()
@@ -392,6 +404,7 @@ bool Page::ProcessNode(xml_node<>* page, std::vector<xml_node<>*> *templates, in
 			mObjects.push_back(element);
 			mRenders.push_back(element);
 			mActions.push_back(element);
+			mFocusable.push_back(element);
 		}
 		else if (type == "checkbox")
 		{
@@ -399,6 +412,7 @@ bool Page::ProcessNode(xml_node<>* page, std::vector<xml_node<>*> *templates, in
 			mObjects.push_back(element);
 			mRenders.push_back(element);
 			mActions.push_back(element);
+			mFocusable.push_back(element);
 		}
 		else if (type == "fileselector")
 		{
@@ -406,6 +420,7 @@ bool Page::ProcessNode(xml_node<>* page, std::vector<xml_node<>*> *templates, in
 			mObjects.push_back(element);
 			mRenders.push_back(element);
 			mActions.push_back(element);
+			mFocusable.push_back(element);
 		}
 		else if (type == "animation")
 		{
@@ -426,6 +441,7 @@ bool Page::ProcessNode(xml_node<>* page, std::vector<xml_node<>*> *templates, in
 			mObjects.push_back(element);
 			mRenders.push_back(element);
 			mActions.push_back(element);
+			mFocusable.push_back(element);
 		}
 		else if (type == "slidervalue")
 		{
@@ -440,6 +456,7 @@ bool Page::ProcessNode(xml_node<>* page, std::vector<xml_node<>*> *templates, in
 			mObjects.push_back(element);
 			mRenders.push_back(element);
 			mActions.push_back(element);
+			mFocusable.push_back(element);
 		}
 		else if (type == "keyboard")
 		{
@@ -462,6 +479,7 @@ bool Page::ProcessNode(xml_node<>* page, std::vector<xml_node<>*> *templates, in
 			mObjects.push_back(element);
 			mRenders.push_back(element);
 			mActions.push_back(element);
+			mFocusable.push_back(element);
 		}
 		else if (type == "patternpassword")
 		{
@@ -565,6 +583,15 @@ int Page::NotifyTouch(TOUCH_STATE state, int x, int y)
 	if (mActions.size() == 0)
 		return ret;
 
+	// Reset key navigation on touch
+	if (state == TOUCH_START && mKeyNavActive)
+	{
+		if (mFocusIndex >= 0 && mFocusIndex < (int)mFocusable.size())
+			mFocusable[mFocusIndex]->SetKeyNavFocus(false);
+		mKeyNavActive = false;
+		mFocusIndex = -1;
+	}
+
 	// We record mTouchStart so we can pass all the touch stream to the same handler
 	if (state == TOUCH_START)
 	{
@@ -596,21 +623,78 @@ int Page::NotifyTouch(TOUCH_STATE state, int x, int y)
 
 int Page::NotifyKey(int key, bool down)
 {
-	std::vector<ActionObject*>::reverse_iterator iter;
-
-	int ret = 1;
-	// We work backwards, from top-most element to bottom-most element
-	for (iter = mActions.rbegin(); iter != mActions.rend(); iter++)
+	// Navigation keys: cycle page-level focus
+	if (key == KEY_VOLUMEUP || key == KEY_VOLUMEDOWN ||
+		key == KEY_UP || key == KEY_DOWN)
 	{
-		ret = (*iter)->NotifyKey(key, down);
+		if (!down)
+			return mKeyNavActive ? 0 : 1;
+
+		if (mFocusable.empty())
+			goto fallthrough;
+
+		// If focused element wants to handle the key (e.g. scroll list sub-nav), let it
+		if (mKeyNavActive && mFocusIndex >= 0 && mFocusIndex < (int)mFocusable.size()) {
+			int ret = mFocusable[mFocusIndex]->NotifyKey(key, down);
+			if (ret == 0)
+				return 0;
+			// ret == 1: element passed (at boundary or not consuming), move page focus
+		}
+
+		mKeyNavActive = true;
+		int oldFocus = mFocusIndex;
+		int direction = (key == KEY_VOLUMEDOWN || key == KEY_DOWN) ? 1 : -1;
+		int startIndex = mFocusIndex;
+
+		// Cycle through focusable elements, skipping hidden ones
+		do {
+			mFocusIndex += direction;
+			if (mFocusIndex >= (int)mFocusable.size())
+				mFocusIndex = 0;
+			else if (mFocusIndex < 0)
+				mFocusIndex = (int)mFocusable.size() - 1;
+
+			GUIObject* obj = dynamic_cast<GUIObject*>(mFocusable[mFocusIndex]);
+			if (!obj || obj->isConditionTrue())
+				break;
+		} while (mFocusIndex != startIndex);
+
+		// Update focus visuals
+		if (oldFocus >= 0 && oldFocus < (int)mFocusable.size())
+			mFocusable[oldFocus]->SetKeyNavFocus(false);
+		mFocusable[mFocusIndex]->SetKeyNavFocus(true);
+
+		return 0;
+	}
+
+	// Select key: activate focused element
+	if (key == KEY_POWER || key == KEY_ENTER)
+	{
+		if (!mKeyNavActive || mFocusIndex < 0 || mFocusIndex >= (int)mFocusable.size())
+			goto fallthrough;
+
+		int ret = mFocusable[mFocusIndex]->NotifyKey(key, down);
 		if (ret == 0)
 			return 0;
-		if (ret < 0) {
-			LOGERR("An action handler has returned an error\n");
-			ret = 1;
-		}
 	}
-	return ret;
+
+fallthrough:
+	// Original behavior: iterate mActions in reverse for key-bound actions
+	{
+		std::vector<ActionObject*>::reverse_iterator iter;
+		int ret = 1;
+		for (iter = mActions.rbegin(); iter != mActions.rend(); iter++)
+		{
+			ret = (*iter)->NotifyKey(key, down);
+			if (ret == 0)
+				return 0;
+			if (ret < 0) {
+				LOGERR("An action handler has returned an error\n");
+				ret = 1;
+			}
+		}
+		return ret;
+	}
 }
 
 int Page::NotifyCharInput(int ch)
@@ -647,6 +731,13 @@ int Page::SetKeyBoardFocus(int inFocus)
 
 void Page::SetPageFocus(int inFocus)
 {
+	if (!inFocus) {
+		if (mFocusIndex >= 0 && mFocusIndex < (int)mFocusable.size())
+			mFocusable[mFocusIndex]->SetKeyNavFocus(false);
+		mKeyNavActive = false;
+		mFocusIndex = -1;
+	}
+
 	// Render remaining objects
 	std::vector<RenderObject*>::iterator iter;
 	for (iter = mRenders.begin(); iter != mRenders.end(); iter++)

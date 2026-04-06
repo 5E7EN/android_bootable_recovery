@@ -102,6 +102,11 @@ protected:
 	ActionObject* mTouchStart;
 	COLOR mBackground;
 
+	// Key navigation focus tracking
+	std::vector<ActionObject*> mFocusable;
+	int mFocusIndex;
+	bool mKeyNavActive;
+
 protected:
 	bool ProcessNode(xml_node<>* page, std::vector<xml_node<>*> *templates, int depth);
 };

@@ -101,6 +101,12 @@ public:
 	//  Return 0 on success (and consume key), >0 to pass key to next handler, and <0 on error
 	virtual int NotifyKey(int key __unused, bool down __unused) { return 1; }
 
+	// IsFocusable - Returns true if this object can receive key navigation focus
+	virtual bool IsFocusable() { return false; }
+
+	// SetKeyNavFocus - Notify when this object gains or loses key navigation focus
+	virtual void SetKeyNavFocus(bool focus __unused) {}
+
 	virtual int GetActionPos(int& x, int& y, int& w, int& h) { x = mActionX; y = mActionY; w = mActionW; h = mActionH; return 0; }
 
 	//  Return 0 on success, <0 on error
@@ -404,6 +410,13 @@ public:
 	//  Return 0 on success, >0 to ignore remainder of touch, and <0 on error
 	virtual int NotifyTouch(TOUCH_STATE state, int x, int y);
 
+	// NotifyKey - Notify of a key press
+	//  Return 0 on success (and consume key), >0 to pass key to next handler, and <0 on error
+	virtual int NotifyKey(int key, bool down);
+
+	virtual bool IsFocusable() { return true; }
+	virtual void SetKeyNavFocus(bool focus);
+
 protected:
 	GUIImage* mButtonImg;
 	ImageResource* mButtonIcon;
@@ -415,6 +428,7 @@ protected:
 	bool hasHighlightColor;
 	bool renderHighlight;
 	bool hasFill;
+	bool mHasKeyFocus;
 	COLOR mFillColor;
 	COLOR mHighlightColor;
 	Placement TextPlacement;
@@ -443,6 +457,13 @@ public:
 	//  Return 0 on success, >0 to ignore remainder of touch, and <0 on error
 	virtual int NotifyTouch(TOUCH_STATE state, int x, int y);
 
+	// NotifyKey - Notify of a key press
+	//  Return 0 on success (and consume key), >0 to pass key to next handler, and <0 on error
+	virtual int NotifyKey(int key, bool down);
+
+	virtual bool IsFocusable() { return true; }
+	virtual void SetKeyNavFocus(bool focus);
+
 protected:
 	ImageResource* mChecked;
 	ImageResource* mUnchecked;
@@ -451,6 +472,7 @@ protected:
 	int mCheckX, mCheckY, mCheckW, mCheckH;
 	int mLastState;
 	bool mRendered;
+	bool mHasKeyFocus;
 	std::string mVarName;
 };
 
@@ -476,6 +498,9 @@ public:
 	// NotifyKey - Notify of a key press
 	//  Return 0 on success (and consume key), >0 to pass key to next handler, and <0 on error
 	virtual int NotifyKey(int key, bool down);
+
+	virtual bool IsFocusable();
+	virtual void SetKeyNavFocus(bool focus);
 
 	// NotifyVarChange - Notify of a variable change
 	virtual int NotifyVarChange(const std::string& varName, const std::string& value);
@@ -570,7 +595,8 @@ protected:
 	int lastY, last2Y; // last 2 touch locations, used for tracking kinetic scroll speed
 	int fastScroll; // indicates that the inital touch was inside the fastscroll region - makes for easier fast scrolling as the touches don't have to stay within the fast scroll region and you drag your finger
 	int mUpdate; // indicates that a change took place and we need to re-render
-	bool mKeyNavActive; // true when user is navigating with hardware buttons
+	bool mKeyNavActive; // true when user is navigating with hardware buttons within the list
+	bool mHasPageFocus; // true when this list has page-level key navigation focus
 	bool AddLines(std::vector<std::string>* origText, std::vector<std::string>* origColor, size_t* lastCount, std::vector<std::string>* rText, std::vector<std::string>* rColor);
 };
 
@@ -903,6 +929,13 @@ public:
 	//  Return 0 on success, >0 to ignore remainder of touch, and <0 on error
 	virtual int NotifyTouch(TOUCH_STATE state, int x, int y);
 
+	// NotifyKey - Notify of a key press
+	//  Return 0 on success (and consume key), >0 to pass key to next handler, and <0 on error
+	virtual int NotifyKey(int key, bool down);
+
+	virtual bool IsFocusable() { return true; }
+	virtual void SetKeyNavFocus(bool focus);
+
 protected:
 	GUIAction* sAction;
 	GUIText* sSliderLabel;
@@ -912,6 +945,8 @@ protected:
 	int sTouchW, sTouchH;
 	int sCurTouchX;
 	int sUpdate;
+	bool mHasKeyFocus;
+	time_t mKeyDownTime;
 };
 
 // these are ASCII codes reported via NotifyCharInput

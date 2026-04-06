@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <linux/input.h>
 #include <sys/reboot.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -53,6 +54,7 @@ GUICheckbox::GUICheckbox(xml_node<>* node)
 	mUnchecked = NULL;
 	mLabel = NULL;
 	mRendered = false;
+	mHasKeyFocus = false;
 
 	mLastState = 0;
 
@@ -190,5 +192,34 @@ int GUICheckbox::NotifyTouch(TOUCH_STATE state, int x __unused, int y __unused)
 
 	}
 	return 0;
+}
+
+void GUICheckbox::SetKeyNavFocus(bool focus)
+{
+	mHasKeyFocus = focus;
+	if (mLabel)
+		mLabel->isHighlighted = focus;
+	mRendered = false;
+}
+
+int GUICheckbox::NotifyKey(int key, bool down)
+{
+	if (!isConditionTrue())
+		return 1;
+	if (!mHasKeyFocus)
+		return 1;
+
+	if (key == KEY_POWER || key == KEY_ENTER) {
+		if (!down) {
+			int lastState;
+			DataManager::GetValue(mVarName, lastState);
+			DataManager::SetValue(mVarName, lastState ? 0 : 1);
+#ifndef TW_NO_HAPTICS
+			DataManager::Vibrate("tw_button_vibrate");
+#endif
+		}
+		return 0;
+	}
+	return 1;
 }
 

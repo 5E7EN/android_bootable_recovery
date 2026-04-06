@@ -58,6 +58,7 @@ GUIScrollList::GUIScrollList(xml_node<>* node) : GUIObject(node)
 	allowSelection = true;
 	selectedItem = NO_ITEM;
 	mKeyNavActive = false;
+	mHasPageFocus = false;
 
 	// Load header text
 	// note: node can be NULL for the emergency console
@@ -619,6 +620,21 @@ void GUIScrollList::SetPageFocus(int inFocus)
 	}
 }
 
+bool GUIScrollList::IsFocusable()
+{
+	return allowSelection;
+}
+
+void GUIScrollList::SetKeyNavFocus(bool focus)
+{
+	mHasPageFocus = focus;
+	if (!focus) {
+		mKeyNavActive = false;
+		selectedItem = NO_ITEM;
+	}
+	mUpdate = 1;
+}
+
 int GUIScrollList::NotifyKey(int key, bool down)
 {
 	if (!isConditionTrue())
@@ -642,15 +658,30 @@ int GUIScrollList::NotifyKey(int key, bool down)
 		scrollingSpeed = 0;
 
 		if (key == KEY_VOLUMEUP || key == KEY_UP) {
-			if (selectedItem == NO_ITEM || selectedItem == 0)
+			if (selectedItem == NO_ITEM || selectedItem == 0) {
+				if (selectedItem == 0) {
+					// At top boundary, yield focus back to page
+					selectedItem = NO_ITEM;
+					mKeyNavActive = false;
+					mUpdate = 1;
+					return 1;
+				}
 				selectedItem = 0;
-			else
+			} else {
 				selectedItem--;
+			}
 		} else {
-			if (selectedItem == NO_ITEM)
+			if (selectedItem == NO_ITEM) {
 				selectedItem = firstDisplayedItem;
-			else if (selectedItem + 1 < itemCount)
+			} else if (selectedItem + 1 >= itemCount) {
+				// At bottom boundary, yield focus back to page
+				selectedItem = NO_ITEM;
+				mKeyNavActive = false;
+				mUpdate = 1;
+				return 1;
+			} else {
 				selectedItem++;
+			}
 		}
 
 		SetVisibleListLocation(selectedItem);
@@ -661,7 +692,7 @@ int GUIScrollList::NotifyKey(int key, bool down)
 	// Select key: power, enter
 	if (key == KEY_POWER || key == KEY_ENTER)
 	{
-		if (!mKeyNavActive || selectedItem == NO_ITEM)
+		if (selectedItem == NO_ITEM)
 			return 1;
 
 		if (!down)

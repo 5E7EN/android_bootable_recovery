@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <linux/input.h>
 #include <sys/reboot.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -53,6 +54,7 @@ GUIButton::GUIButton(xml_node<>* node)
 	hasHighlightColor = false;
 	renderHighlight = false;
 	hasFill = false;
+	mHasKeyFocus = false;
 
 	if (!node)  return;
 
@@ -263,4 +265,35 @@ int GUIButton::NotifyTouch(TOUCH_STATE state, int x, int y)
 	if (x < mRenderX || x - mRenderX > mRenderW || y < mRenderY || y - mRenderY > mRenderH)
 		return 0;
 	return (mAction ? mAction->NotifyTouch(state, x, y) : 1);
+}
+
+void GUIButton::SetKeyNavFocus(bool focus)
+{
+	mHasKeyFocus = focus;
+	renderHighlight = focus;
+	if (mButtonLabel)
+		mButtonLabel->isHighlighted = focus;
+	if (mButtonImg)
+		mButtonImg->isHighlighted = focus;
+	mRendered = false;
+}
+
+int GUIButton::NotifyKey(int key, bool down)
+{
+	if (!isConditionTrue())
+		return 1;
+	if (!mHasKeyFocus)
+		return 1;
+
+	if (key == KEY_POWER || key == KEY_ENTER) {
+		if (!down) {
+			if (mAction)
+				mAction->doActions();
+#ifndef TW_NO_HAPTICS
+			DataManager::Vibrate("tw_button_vibrate");
+#endif
+		}
+		return 0;
+	}
+	return 1;
 }
