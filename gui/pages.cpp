@@ -654,8 +654,7 @@ int Page::NotifyKey(int key, bool down)
 			else if (mFocusIndex < 0)
 				mFocusIndex = (int)mFocusable.size() - 1;
 
-			GUIObject* obj = dynamic_cast<GUIObject*>(mFocusable[mFocusIndex]);
-			if (!obj || obj->isConditionTrue())
+			if (mFocusable[mFocusIndex]->IsVisible())
 				break;
 		} while (mFocusIndex != startIndex);
 

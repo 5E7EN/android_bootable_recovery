@@ -104,6 +104,9 @@ public:
 	// IsFocusable - Returns true if this object can receive key navigation focus
 	virtual bool IsFocusable() { return false; }
 
+	// IsVisible - Returns true if this object should be considered for key navigation
+	virtual bool IsVisible() { return true; }
+
 	// SetKeyNavFocus - Notify when this object gains or loses key navigation focus
 	virtual void SetKeyNavFocus(bool focus __unused) {}
 
@@ -415,6 +418,7 @@ public:
 	virtual int NotifyKey(int key, bool down);
 
 	virtual bool IsFocusable() { return true; }
+	virtual bool IsVisible() { return isConditionTrue(); }
 	virtual void SetKeyNavFocus(bool focus);
 
 protected:
@@ -462,6 +466,7 @@ public:
 	virtual int NotifyKey(int key, bool down);
 
 	virtual bool IsFocusable() { return true; }
+	virtual bool IsVisible() { return isConditionTrue(); }
 	virtual void SetKeyNavFocus(bool focus);
 
 protected:
@@ -500,6 +505,7 @@ public:
 	virtual int NotifyKey(int key, bool down);
 
 	virtual bool IsFocusable();
+	virtual bool IsVisible() { return isConditionTrue(); }
 	virtual void SetKeyNavFocus(bool focus);
 
 	// NotifyVarChange - Notify of a variable change
@@ -934,6 +940,7 @@ public:
 	virtual int NotifyKey(int key, bool down);
 
 	virtual bool IsFocusable() { return true; }
+	virtual bool IsVisible() { return isConditionTrue(); }
 	virtual void SetKeyNavFocus(bool focus);
 
 protected:
