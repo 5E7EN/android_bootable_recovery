@@ -17,6 +17,7 @@
 */
 
 #include <string.h>
+#include <linux/input.h>
 
 extern "C" {
 #include "../twcommon.h"
@@ -56,6 +57,7 @@ GUIScrollList::GUIScrollList(xml_node<>* node) : GUIObject(node)
 	hasHighlightColor = false;
 	allowSelection = true;
 	selectedItem = NO_ITEM;
+	mKeyNavActive = false;
 
 	// Load header text
 	// note: node can be NULL for the emergency console
@@ -430,6 +432,7 @@ int GUIScrollList::NotifyTouch(TOUCH_STATE state, int x, int y)
 	switch (state)
 	{
 	case TOUCH_START:
+		mKeyNavActive = false;
 		if (hasScroll && x >= mRenderX + mRenderW - mFastScrollW) {
 			fastScroll = 1; // Initial touch is in the fast scroll region
 			int fastScrollBoxTop = mFastScrollRectCurrentY + mRenderY + mHeaderH;
@@ -610,8 +613,71 @@ void GUIScrollList::SetPageFocus(int inFocus)
 	if (inFocus) {
 		NotifyVarChange("", ""); // This forces a check for the header text
 		scrollingSpeed = 0; // stop kinetic scrolling on page changes
+		mKeyNavActive = false;
+		selectedItem = NO_ITEM;
 		mUpdate = 1;
 	}
+}
+
+int GUIScrollList::NotifyKey(int key, bool down)
+{
+	if (!isConditionTrue())
+		return 1;
+
+	if (!allowSelection)
+		return 1;
+
+	size_t itemCount = GetItemCount();
+	if (itemCount == 0)
+		return 1;
+
+	// Navigation keys: volume up/down, arrow up/down
+	if (key == KEY_VOLUMEUP || key == KEY_UP ||
+		key == KEY_VOLUMEDOWN || key == KEY_DOWN)
+	{
+		if (!down)
+			return mKeyNavActive ? 0 : 1;
+
+		mKeyNavActive = true;
+		scrollingSpeed = 0;
+
+		if (key == KEY_VOLUMEUP || key == KEY_UP) {
+			if (selectedItem == NO_ITEM || selectedItem == 0)
+				selectedItem = 0;
+			else
+				selectedItem--;
+		} else {
+			if (selectedItem == NO_ITEM)
+				selectedItem = firstDisplayedItem;
+			else if (selectedItem + 1 < itemCount)
+				selectedItem++;
+		}
+
+		SetVisibleListLocation(selectedItem);
+		mUpdate = 1;
+		return 0;
+	}
+
+	// Select key: power, enter
+	if (key == KEY_POWER || key == KEY_ENTER)
+	{
+		if (!mKeyNavActive || selectedItem == NO_ITEM)
+			return 1;
+
+		if (!down)
+			return 0;
+
+		NotifySelect(selectedItem);
+		mUpdate = 1;
+
+#ifndef TW_NO_HAPTICS
+		DataManager::Vibrate("tw_button_vibrate");
+#endif
+
+		return 0;
+	}
+
+	return 1;
 }
 
 bool GUIScrollList::AddLines(std::vector<std::string>* origText, std::vector<std::string>* origColor, size_t* lastCount, std::vector<std::string>* rText, std::vector<std::string>* rColor)

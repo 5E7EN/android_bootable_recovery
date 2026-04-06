@@ -473,6 +473,10 @@ public:
 	//  Return 0 on success, >0 to ignore remainder of touch, and <0 on error
 	virtual int NotifyTouch(TOUCH_STATE state, int x, int y);
 
+	// NotifyKey - Notify of a key press
+	//  Return 0 on success (and consume key), >0 to pass key to next handler, and <0 on error
+	virtual int NotifyKey(int key, bool down);
+
 	// NotifyVarChange - Notify of a variable change
 	virtual int NotifyVarChange(const std::string& varName, const std::string& value);
 
@@ -566,6 +570,7 @@ protected:
 	int lastY, last2Y; // last 2 touch locations, used for tracking kinetic scroll speed
 	int fastScroll; // indicates that the inital touch was inside the fastscroll region - makes for easier fast scrolling as the touches don't have to stay within the fast scroll region and you drag your finger
 	int mUpdate; // indicates that a change took place and we need to re-render
+	bool mKeyNavActive; // true when user is navigating with hardware buttons
 	bool AddLines(std::vector<std::string>* origText, std::vector<std::string>* origColor, size_t* lastCount, std::vector<std::string>* rText, std::vector<std::string>* rColor);
 };
 
