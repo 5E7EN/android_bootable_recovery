@@ -623,9 +623,14 @@ int Page::NotifyTouch(TOUCH_STATE state, int x, int y)
 
 int Page::NotifyKey(int key, bool down)
 {
+	// Map KEY_CLEAR to KEY_BACK for "go back" behavior
+	if (key == KEY_CLEAR)
+		key = KEY_BACK;
+
 	// Navigation keys: cycle page-level focus
 	if (key == KEY_VOLUMEUP || key == KEY_VOLUMEDOWN ||
-		key == KEY_UP || key == KEY_DOWN)
+		key == KEY_UP || key == KEY_DOWN ||
+		key == KEY_LEFT || key == KEY_RIGHT)
 	{
 		if (!down)
 			return mKeyNavActive ? 0 : 1;
@@ -643,7 +648,7 @@ int Page::NotifyKey(int key, bool down)
 
 		mKeyNavActive = true;
 		int oldFocus = mFocusIndex;
-		int direction = (key == KEY_VOLUMEDOWN || key == KEY_DOWN) ? 1 : -1;
+		int direction = (key == KEY_VOLUMEDOWN || key == KEY_DOWN || key == KEY_RIGHT) ? 1 : -1;
 		int startIndex = mFocusIndex;
 
 		// Cycle through focusable elements, skipping hidden ones
@@ -667,7 +672,7 @@ int Page::NotifyKey(int key, bool down)
 	}
 
 	// Select key: activate focused element
-	if (key == KEY_POWER || key == KEY_ENTER)
+	if (key == KEY_ENTER)
 	{
 		if (!mKeyNavActive || mFocusIndex < 0 || mFocusIndex >= (int)mFocusable.size())
 			goto fallthrough;

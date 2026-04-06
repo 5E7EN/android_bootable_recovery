@@ -647,9 +647,9 @@ int GUIScrollList::NotifyKey(int key, bool down)
 	if (itemCount == 0)
 		return 1;
 
-	// Navigation keys: volume up/down, arrow up/down
-	if (key == KEY_VOLUMEUP || key == KEY_UP ||
-		key == KEY_VOLUMEDOWN || key == KEY_DOWN)
+	// Navigation keys: volume up/down, arrow up/down/left/right
+	if (key == KEY_VOLUMEUP || key == KEY_UP || key == KEY_LEFT ||
+		key == KEY_VOLUMEDOWN || key == KEY_DOWN || key == KEY_RIGHT)
 	{
 		if (!down)
 			return mKeyNavActive ? 0 : 1;
@@ -657,7 +657,7 @@ int GUIScrollList::NotifyKey(int key, bool down)
 		mKeyNavActive = true;
 		scrollingSpeed = 0;
 
-		if (key == KEY_VOLUMEUP || key == KEY_UP) {
+		if (key == KEY_VOLUMEUP || key == KEY_UP || key == KEY_LEFT) {
 			if (selectedItem == NO_ITEM || selectedItem == 0) {
 				if (selectedItem == 0) {
 					// At top boundary, yield focus back to page
@@ -689,11 +689,19 @@ int GUIScrollList::NotifyKey(int key, bool down)
 		return 0;
 	}
 
-	// Select key: power, enter
-	if (key == KEY_POWER || key == KEY_ENTER)
+	// Select key: enter
+	if (key == KEY_ENTER)
 	{
-		if (selectedItem == NO_ITEM)
-			return 1;
+		if (selectedItem == NO_ITEM) {
+			// No item highlighted yet — select the first visible item on key-down
+			if (down && itemCount > 0) {
+				mKeyNavActive = true;
+				selectedItem = firstDisplayedItem;
+				SetVisibleListLocation(selectedItem);
+				mUpdate = 1;
+			}
+			return 0;
+		}
 
 		if (!down)
 			return 0;

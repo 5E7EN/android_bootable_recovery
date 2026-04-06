@@ -250,9 +250,11 @@ int GUISlider::NotifyKey(int key, bool down)
 	if (!mHasKeyFocus)
 		return 1;
 
-	if (key == KEY_POWER || key == KEY_ENTER) {
+	if (key == KEY_ENTER) {
 		if (down) {
-			mKeyDownTime = time(NULL);
+			// Only record time on first press, not on key repeats
+			if (mKeyDownTime == 0)
+				mKeyDownTime = time(NULL);
 		} else {
 			// Require 2+ second hold to activate (safety for destructive actions)
 			if (mKeyDownTime > 0 && (time(NULL) - mKeyDownTime) >= 2) {

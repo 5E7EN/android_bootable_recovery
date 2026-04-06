@@ -285,7 +285,7 @@ int GUIButton::NotifyKey(int key, bool down)
 	if (!mHasKeyFocus)
 		return 1;
 
-	if (key == KEY_POWER || key == KEY_ENTER) {
+	if (key == KEY_ENTER) {
 		if (!down) {
 			if (mAction)
 				mAction->doActions();
