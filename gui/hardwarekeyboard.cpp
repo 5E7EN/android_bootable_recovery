@@ -399,12 +399,12 @@ int HardwareKeyboard::KeyDown(int key_code)
 		mLastKeyChar = ch;
 		if (!PageManager::NotifyCharInput(ch))
 			return 1;  // Return 1 to enable key repeat
-	} else {
-		mLastKeyChar = 0;
-		mLastKey = key_code;
-		if (!PageManager::NotifyKey(key_code, true))
-			return 1;  // Return 1 to enable key repeat
+		// If no input consumed the char, try as a key (e.g. KEY_ENTER for nav select)
 	}
+	mLastKeyChar = 0;
+	mLastKey = key_code;
+	if (!PageManager::NotifyKey(key_code, true))
+		return 1;  // Return 1 to enable key repeat
 	return 0;
 }
 
